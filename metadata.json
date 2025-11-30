@@ -1,0 +1,7 @@
+{
+  "name": "JamTalk - Patois Tutor",
+  "description": "Learn Jamaican Patois with a real-time AI conversational partner and interactive lessons.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
