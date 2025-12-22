@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Lesson, Module } from '../types';
 import { INITIAL_LESSONS, COURSE_MODULES } from '../constants';
-import { ArrowRight, Star, CheckCircle, RefreshCw, Lock, Award, Download, Share2, BookOpen, GraduationCap, Copy, Check } from 'lucide-react';
+import { ArrowRight, Star, CheckCircle, Lock, Award, Download, Share2, BookOpen, GraduationCap, Check, Loader2 } from 'lucide-react';
+
+const CERTIFICATE_LOGO = "https://i.postimg.cc/3xbzTV7k/Jam-Talk-Logo.png";
 
 interface LessonsViewProps {
   onStartLesson: (lesson: Lesson) => void;
@@ -13,6 +15,10 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
   const [activeTab, setActiveTab] = useState<'curriculum' | 'certificate'>('curriculum');
   const [userName, setUserName] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Ref for the hidden print version of the certificate
+  const printRef = useRef<HTMLDivElement>(null);
 
   // Calculate Progress
   const totalLessons = INITIAL_LESSONS.length;
@@ -34,216 +40,61 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
     return !completedInPrev;
   };
 
-  const handleDownload = () => {
-    // Since window.print() is often blocked in sandboxes, we generate a standalone HTML file
-    const safeName = userName || 'Student';
-    const dateStr = new Date().toLocaleDateString();
-    const whatsappLink = "https://wa.me/233551389510?text=I%20am%20interested%20in%20learning%20Patois!";
-    // Using a reliable public API for the QR code image
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(whatsappLink)}&color=15803d`;
+  const handleDownload = async () => {
+    if (!printRef.current) return;
     
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JamTalk Certificate - ${safeName}</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f0fdf4;
-            font-family: 'Times New Roman', serif;
-        }
-        .cert-container {
-            width: 900px;
-            height: 640px;
-            background-color: #fffdf5;
-            border: 8px double #ca8a04;
-            padding: 40px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            position: relative;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-sizing: border-box;
-        }
-        .header {
-            border-bottom: 2px solid rgba(202,138,4,0.2);
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-        .title {
-            font-size: 48px;
-            font-weight: bold;
-            color: #a16207;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin: 0;
-        }
-        .subtitle {
-            font-size: 18px;
-            color: rgba(133,77,14,0.6);
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            margin-top: 5px;
-        }
-        .content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .certifies {
-            color: #6b7280;
-            font-style: italic;
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        .name {
-            font-size: 56px;
-            font-weight: bold;
-            color: #111827;
-            border-bottom: 2px solid #d1d5db;
-            padding-bottom: 10px;
-            margin: 10px 40px 30px 40px;
-            min-width: 400px;
-        }
-        .completion-text {
-            color: #4b5563;
-            font-size: 20px;
-            line-height: 1.5;
-        }
-        .course-name {
-            font-weight: bold;
-            color: #15803d;
-            font-size: 28px;
-            display: block;
-            margin-top: 10px;
-        }
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            border-top: 1px solid rgba(202,138,4,0.2);
-            padding-top: 30px;
-        }
-        .sig-line {
-            text-align: left;
-        }
-        .sig-line.right {
-            text-align: right;
-        }
-        .line {
-            width: 200px;
-            border-bottom: 1px solid #9ca3af;
-            margin-bottom: 8px;
-        }
-        .label {
-            font-size: 12px;
-            color: #9ca3af;
-            text-transform: uppercase;
-            font-family: sans-serif;
-        }
-        .value {
-            font-size: 18px;
-            color: #1f2937;
-            font-family: cursive;
-        }
-        .seal {
-            width: 80px;
-            height: 80px;
-            background-color: #ca8a04;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border: 4px solid #fff;
-            outline: 2px solid #ca8a04;
-        }
-        .qr-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-        .qr-code {
-            width: 80px;
-            height: 80px;
-            border: 4px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .qr-label {
-            font-size: 10px;
-            color: #15803d;
-            font-family: sans-serif;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-    </style>
-</head>
-<body>
-    <div class="cert-container">
-        <div class="header">
-            <h1 class="title">Certificate</h1>
-            <div class="subtitle">Of Completion</div>
-        </div>
+    setIsDownloading(true);
+    try {
+        // Wait a brief moment to ensure any repaints are done
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        <div class="content">
-            <div class="certifies">This certifies that</div>
-            <div class="name">${safeName}</div>
-            <div class="completion-text">
-                Has successfully completed the
-                <span class="course-name">JamTalk Patois Course</span>
-            </div>
-        </div>
+        // Wait for logo image to load if not ready
+        const logoImg = printRef.current.querySelector('img.cert-logo') as HTMLImageElement;
+        if (logoImg && !logoImg.complete) {
+            await new Promise((resolve) => {
+                logoImg.onload = resolve;
+                logoImg.onerror = resolve; // proceed even if fail
+            });
+        }
 
-        <div class="footer">
-            <div class="sig-line">
-                <div class="value">${dateStr}</div>
-                <div class="line"></div>
-                <div class="label">Date</div>
-            </div>
+        // Capture the hidden high-res print container using global html2canvas
+        // @ts-ignore
+        const canvas = await window.html2canvas(printRef.current, {
+            scale: 2, // 2x scale for crisp text
+            useCORS: true, // Allow loading the QR code and Logo image
+            allowTaint: true,
+            backgroundColor: '#fffdf5', // Force background color
+            logging: false,
+            x: 0,
+            y: 0,
+            scrollX: 0,
+            scrollY: 0
+        });
 
-            <div class="qr-section">
-                <img src="${qrCodeUrl}" alt="Scan to Contact" class="qr-code">
-                <div class="qr-label">Scan to Connect</div>
-            </div>
+        const imgData = canvas.toDataURL('image/png');
+        
+        // A4 Landscape dimensions in mm
+        const pdfWidth = 297;
+        const pdfHeight = 210;
 
-            <div class="sig-line right">
-                <div class="value" style="color: #166534; font-weight: bold;">Aunty Gem</div>
-                <div class="line"></div>
-                <div class="label">Instructor</div>
-            </div>
-        </div>
-    </div>
-    <script>
-        window.onload = function() { setTimeout(function() { window.print(); }, 1000); };
-    </script>
-</body>
-</html>
-    `;
+        // Access global jsPDF
+        // @ts-ignore
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
 
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `JamTalk_Certificate_${safeName.replace(/\s+/g, '_')}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`JamTalk_Certificate_${userName.replace(/\s+/g, '_') || 'Student'}.pdf`);
+
+    } catch (error) {
+        console.error("PDF Generation failed", error);
+        alert("Could not generate PDF. Please try again.");
+    } finally {
+        setIsDownloading(false);
+    }
   };
 
   const handleShare = async () => {
@@ -252,7 +103,7 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
     const shareData = {
         title: 'JamTalk Certificate',
         text: shareText,
-        url: "https://wa.me/233551389510" // Adding the URL explicitly helps some share targets
+        url: "https://wa.me/233551389510" 
     };
 
     // Try native share first
@@ -271,10 +122,13 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
         setShareStatus('copied');
         setTimeout(() => setShareStatus('idle'), 3000);
     } catch (err) {
-        // Last resort fallback if clipboard fails (rare, but possible in some frames)
         alert("Copy failed. Please manually share: +233551389510");
     }
   };
+
+  const whatsappLink = "https://wa.me/233551389510?text=I%20am%20interested%20in%20learning%20Patois!";
+  // QR Server is a reliable public API. Size 150x150 for clarity. Color dark green.
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(whatsappLink)}&color=15803d&bgcolor=fffdf5`;
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -447,63 +301,137 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
                              <p className="text-gray-600">You have officially mastered the basics of Jamaican Patois.</p>
                         </div>
 
-                        {/* Certificate Card */}
-                        <div className="relative w-full aspect-[1.4] bg-[#fffdf5] border-8 border-double border-yellow-600 p-8 shadow-2xl rounded-lg text-center flex flex-col items-center justify-between overflow-hidden">
-                            {/* Watermark/Background */}
+                        {/* Visible Responsive Certificate Card */}
+                        <div className="relative w-full aspect-[1.4] bg-[#fffdf5] border-8 border-double border-yellow-600 p-6 shadow-2xl rounded-lg text-center flex flex-col items-center overflow-hidden pb-32">
+                            {/* Watermark */}
                             <div className="absolute inset-0 opacity-5 flex items-center justify-center pointer-events-none">
                                 <GraduationCap size={200} />
                             </div>
                             
                             {/* Header */}
                             <div className="relative z-10 w-full border-b-2 border-yellow-600/20 pb-4 mb-2">
-                                <div className="text-3xl font-serif text-yellow-700 font-bold tracking-widest uppercase mb-1">Certificate</div>
-                                <div className="text-sm font-serif text-yellow-800/60 uppercase tracking-wide">Of Completion</div>
+                                <img 
+                                    src={CERTIFICATE_LOGO} 
+                                    alt="JamTalk Logo" 
+                                    className="h-16 mx-auto mb-3 object-contain"
+                                    crossOrigin="anonymous"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                                {!CERTIFICATE_LOGO && <h1 className="text-3xl font-bold text-green-700 mb-2">JamTalk</h1>}
+                                
+                                <div className="text-2xl sm:text-3xl font-serif text-yellow-700 font-bold tracking-widest uppercase mb-1">Certificate</div>
+                                <div className="text-xs sm:text-sm font-serif text-yellow-800/60 uppercase tracking-wide">Of Completion</div>
                             </div>
 
                             {/* Body */}
-                            <div className="relative z-10 flex-1 flex flex-col justify-center w-full py-4">
-                                <p className="text-gray-500 italic font-serif mb-4">This certifies that</p>
+                            <div className="relative z-10 flex-1 flex flex-col justify-center w-full py-2">
+                                <p className="text-gray-500 italic font-serif mb-2 text-sm sm:text-base">This certifies that</p>
                                 
-                                {userName ? (
-                                    <h3 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4 mx-8">
-                                        {userName}
-                                    </h3>
-                                ) : (
-                                    <input 
-                                        type="text" 
-                                        placeholder="Enter Your Name"
-                                        className="text-2xl sm:text-3xl font-serif font-bold text-center bg-transparent border-b border-gray-300 pb-2 mb-4 mx-8 outline-none placeholder-gray-300 hover:bg-yellow-50 focus:border-yellow-500 transition-colors w-3/4 mx-auto"
-                                        value={userName}
-                                        onChange={(e) => setUserName(e.target.value)}
-                                    />
-                                )}
+                                <input 
+                                    type="text" 
+                                    placeholder="Enter Your Name"
+                                    className="text-lg sm:text-xl font-serif font-bold text-center bg-transparent border-b-2 border-gray-300 focus:border-yellow-600 pb-2 mb-4 outline-none placeholder-gray-300 w-full text-gray-900 transition-colors"
+                                    value={userName}
+                                    onChange={(e) => setUserName(e.target.value)}
+                                />
 
-                                <p className="text-gray-600 font-serif">
+                                <p className="text-gray-600 font-serif text-sm sm:text-lg">
                                     Has successfully completed the<br/>
                                     <span className="font-bold text-green-700">JamTalk Patois Course</span>
                                 </p>
                             </div>
 
-                            {/* Footer */}
-                            <div className="relative z-10 w-full flex justify-between items-end pt-4 border-t border-yellow-600/20 mt-2">
-                                <div className="text-left">
-                                    <div className="w-24 border-b border-gray-400 mb-1"></div>
-                                    <div className="text-[10px] text-gray-400 uppercase">Date</div>
-                                    <div className="text-xs font-serif">{new Date().toLocaleDateString()}</div>
+                            {/* Footer - Absolute Bottom */}
+                            <div className="absolute bottom-0 left-6 right-6 z-10 grid grid-cols-3 items-end border-t border-yellow-600/20 pt-2 gap-2 pb-4">
+                                <div className="text-left flex flex-col justify-end">
+                                    <div className="text-[10px] sm:text-xs font-serif mb-1">{new Date().toLocaleDateString()}</div>
+                                    <div className="w-full border-b border-gray-400 mb-1"></div>
+                                    <div className="text-[8px] sm:text-[10px] text-gray-400 uppercase">Date</div>
                                 </div>
                                 
-                                <div className="w-16 h-16 relative">
-                                    {/* Seal */}
-                                    <div className="absolute inset-0 bg-yellow-600 rounded-full flex items-center justify-center text-white shadow-md">
-                                        <Star size={24} className="fill-current" />
-                                    </div>
-                                    <div className="absolute inset-1 border border-white rounded-full opacity-50"></div>
+                                <div className="flex flex-col items-center justify-end">
+                                    <img 
+                                        src={qrCodeUrl} 
+                                        alt="Contact QR" 
+                                        className="w-12 h-12 sm:w-16 sm:h-16 border-2 border-white shadow-sm mb-1"
+                                        crossOrigin="anonymous" 
+                                    />
                                 </div>
 
-                                <div className="text-right">
-                                    <div className="w-24 border-b border-gray-400 mb-1"></div>
-                                    <div className="text-[10px] text-gray-400 uppercase">Instructor</div>
-                                    <div className="text-xs font-serif font-bold text-green-800">Aunty Gem</div>
+                                <div className="text-right flex flex-col justify-end">
+                                    <div className="text-[10px] sm:text-xs font-serif font-bold text-green-800 mb-1">JamTalk</div>
+                                    <div className="w-full border-b border-gray-400 mb-1"></div>
+                                    <div className="text-[8px] sm:text-[10px] text-gray-400 uppercase">Instructor</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Hidden Print-Ready Template (A4 Landscape) */}
+                        <div 
+                           ref={printRef}
+                           className="absolute top-0 left-[-9999px] bg-[#fffdf5] border-[16px] border-double border-[#ca8a04] flex flex-col overflow-hidden text-center"
+                           style={{ width: '1123px', height: '794px', zIndex: -100, padding: '24px' }}
+                        >
+                            {/* Watermark */}
+                            <div className="absolute inset-0 opacity-[0.05] flex items-center justify-center pointer-events-none">
+                                <GraduationCap size={400} />
+                            </div>
+
+                            {/* Header - Compacted and moved UP */}
+                            <div className="relative z-10 border-b-[2px] border-[#ca8a04]/20 pb-2 mb-2">
+                                <img 
+                                    src={CERTIFICATE_LOGO} 
+                                    alt="JamTalk Logo" 
+                                    className="cert-logo h-20 mx-auto mb-2 object-contain"
+                                    crossOrigin="anonymous"
+                                />
+                                <h1 className="text-[48px] font-serif text-[#a16207] font-bold tracking-[0.15em] uppercase leading-tight mb-1">Certificate</h1>
+                                <div className="text-[16px] font-serif text-[#854d0e]/60 uppercase tracking-[0.25em]">Of Completion</div>
+                            </div>
+
+                            {/* Body - Tighter Spacing and Shorter Name */}
+                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center">
+                                <p className="text-[#6b7280] italic font-serif text-[22px] mb-2">This certifies that</p>
+                                
+                                <h2 className="text-[38px] font-serif font-bold text-[#111827] border-b-[3px] border-[#d1d5db] pb-1 mb-4 px-2 w-full max-w-[1000px] leading-tight mx-auto whitespace-nowrap overflow-hidden text-ellipsis">
+                                    {userName || 'Student Name'}
+                                </h2>
+                                
+                                <p className="text-[#4b5563] font-serif text-[24px] leading-normal">
+                                    Has successfully completed the<br/>
+                                    <span className="font-bold text-[#15803d] text-[28px]">JamTalk Patois Course</span>
+                                </p>
+                            </div>
+
+                            {/* Footer - Pushed up with enough space */}
+                            <div className="relative z-10 grid grid-cols-3 items-end pt-4 mt-auto mb-16 border-t-[2px] border-[#ca8a04]/20 gap-10 px-10">
+                                {/* Date */}
+                                <div className="text-left flex flex-col justify-end">
+                                    <div className="text-[24px] font-serif text-[#1f2937] mb-1 pl-4">{new Date().toLocaleDateString()}</div>
+                                    <div className="w-full border-b-[2px] border-[#9ca3af] mb-1"></div>
+                                    <div className="text-[12px] text-[#9ca3af] uppercase font-bold tracking-wider pl-1">Date</div>
+                                </div>
+                                
+                                {/* QR Code */}
+                                <div className="flex flex-col items-center justify-end">
+                                    <div className="bg-white p-1 border-[3px] border-[#e5e7eb] rounded-lg shadow-sm">
+                                        <img 
+                                            src={qrCodeUrl} 
+                                            alt="Contact QR" 
+                                            className="w-[90px] h-[90px]"
+                                            crossOrigin="anonymous"
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-[#15803d] font-bold uppercase tracking-widest mt-1">Scan to Connect</span>
+                                </div>
+
+                                {/* Instructor */}
+                                <div className="text-right flex flex-col justify-end">
+                                    <div className="text-[28px] font-serif font-bold text-[#166534] mb-1 pr-4 font-cursive">JamTalk</div>
+                                    <div className="w-full border-b-[2px] border-[#9ca3af] mb-1"></div>
+                                    <div className="text-[12px] text-[#9ca3af] uppercase font-bold tracking-wider pr-1">Instructor</div>
                                 </div>
                             </div>
                         </div>
@@ -511,10 +439,12 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
                         {/* Actions */}
                         <div className="flex gap-4 w-full max-w-sm">
                             <button 
-                                className="flex-1 bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                                className="flex-1 bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors disabled:opacity-50"
                                 onClick={handleDownload}
+                                disabled={isDownloading || !userName.trim()}
                             >
-                                <Download size={18} /> Download
+                                {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                {isDownloading ? 'Generating...' : 'Download PDF'}
                             </button>
                             {/* Share button */}
                             <button 
@@ -536,6 +466,13 @@ export const LessonsView: React.FC<LessonsViewProps> = ({ onStartLesson, complet
                                 )}
                             </button>
                         </div>
+                        
+                        {!userName.trim() && (
+                            <p className="text-xs text-red-500 font-medium animate-pulse">
+                                Please enter your name to unlock download.
+                            </p>
+                        )}
+                        
                         {shareStatus === 'copied' && (
                             <p className="text-xs text-green-600 font-medium animate-in fade-in slide-in-from-top-1">
                                 Link copied to clipboard!

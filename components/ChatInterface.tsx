@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Loader2, Volume2, StopCircle, VolumeX, Trash2, Heart, Mic, MicOff, Menu, Plus, X, MessageSquare, Calendar, Search } from 'lucide-react';
 import { Message } from '../types';
@@ -5,6 +6,7 @@ import { ai } from '../services/gemini';
 import { SYSTEM_INSTRUCTION, EMPATHY_INSTRUCTION } from '../constants';
 import { base64ToUint8Array, decodeAudioData } from '../utils/audio';
 import ReactMarkdown from 'react-markdown';
+import { Modality } from '@google/genai';
 
 const SESSIONS_KEY = 'jamtalk_chat_sessions';
 const LEGACY_KEY = 'jamtalk_chat_history';
@@ -241,7 +243,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
           setMessages([{
             id: 'welcome',
             role: 'model',
-            text: "Wa gwaan! I'm Aunty Gem. Ready to learn some Patois? Type something or ask me how to say a phrase!",
+            text: "Wa gwaan! I'm JamTalk. Ready to learn some Patois? Type something or ask me how to say a phrase!",
             timestamp: new Date()
           }]);
       }
@@ -349,7 +351,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
       setMessages([{
         id: 'welcome',
         role: 'model',
-        text: "Wa gwaan! I'm Aunty Gem. Ready to learn some Patois? Type something or ask me how to say a phrase!",
+        text: "Wa gwaan! I'm JamTalk. Ready to learn some Patois? Type something or ask me how to say a phrase!",
         timestamp: new Date()
       }]);
       setIsSidebarOpen(false);
@@ -441,11 +443,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
         const maxLength = 600; 
         const textToSpeak = cleanText.length > maxLength ? cleanText.substring(0, maxLength) + "..." : cleanText;
 
+        // Fix: Corrected model name and used Modality.AUDIO enum
         const response = await ai.models.generateContent({
           model: "gemini-2.5-flash-preview-tts",
           contents: [{ parts: [{ text: textToSpeak }] }],
           config: {
-            responseModalities: ['AUDIO'],
+            responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: { voiceName: selectedVoice },
@@ -538,8 +541,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
         effectiveInstruction += `\n\n${EMPATHY_INSTRUCTION}`;
       }
 
+      // Fix: Used 'gemini-3-flash-preview' for chat/text task
       const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         history: history,
         config: {
           systemInstruction: effectiveInstruction,
@@ -644,7 +648,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
               <div className="flex items-center gap-2 mb-1 opacity-70">
                 {msg.role === 'user' ? <User size={12} /> : <Bot size={12} />}
                 <span className="text-[10px] font-medium">
-                  {msg.role === 'user' ? 'You' : 'Aunty Gem'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.role === 'user' ? 'You' : 'JamTalk'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               
@@ -697,7 +701,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedVoice, onO
           <div className="flex justify-start">
             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none p-4 shadow-sm flex items-center gap-2">
               <Loader2 size={16} className="animate-spin text-green-500" />
-              <span className="text-sm text-gray-500">Aunty Gem is typing...</span>
+              <span className="text-sm text-gray-500">JamTalk is typing...</span>
             </div>
           </div>
         )}

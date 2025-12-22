@@ -6,9 +6,18 @@ export interface Message {
   timestamp: Date;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  joinedAt: Date;
+  xp: number;
+  avatar?: string;
+}
+
 export interface Lesson {
   id: string;
-  moduleId: string; // Linked to a module
+  moduleId: string;
   title: string;
   description: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
@@ -22,24 +31,6 @@ export interface Module {
   description: string;
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   order: number;
-}
-
-export interface Certificate {
-  id: string;
-  userName: string;
-  date: Date;
-  courseTitle: string;
-}
-
-export type TranslationDirection = 'en-to-pat' | 'pat-to-en';
-
-export interface TranslationHistoryItem {
-  id: string;
-  original: string;
-  translated: string;
-  timestamp: Date;
-  direction: TranslationDirection;
-  pronunciation?: string;
 }
 
 export interface LiveSessionRecord {
@@ -65,11 +56,26 @@ export interface CoachHistoryItem {
   timestamp: Date;
 }
 
+/**
+ * Fix: Added missing types for TranslatorView
+ */
+export type TranslationDirection = 'en-to-pat' | 'pat-to-en';
+
+export interface TranslationHistoryItem {
+  id: string;
+  original: string;
+  translated: string;
+  pronunciation?: string;
+  timestamp: Date;
+  direction: TranslationDirection;
+}
+
 export enum AppMode {
   LESSONS = 'lessons',
   CHAT = 'chat',
   LIVE = 'live',
+  COACH = 'coach',
   TRANSLATE = 'translate',
   MUSIC = 'music',
-  COACH = 'coach'
+  PROFILE = 'profile'
 }

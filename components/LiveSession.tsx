@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Mic, MicOff, Video, PhoneOff, BarChart2, Loader2, CheckCircle, ArrowLeft, Heart, HeartHandshake, History, X, Calendar, Play, Volume2, AlertCircle } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
@@ -51,7 +52,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
             className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" 
             onClick={onClose}
           />
-          <div className="relative w-3/4 max-w-sm bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+          <div className="relative w-3/4 max-sm bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <History size={18} /> Past Sessions
@@ -642,7 +643,7 @@ export const LiveSession: React.FC<LiveSessionProps> = ({
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">Session Ended</h2>
                 <p className="text-gray-500">
-                    Great practice! You've successfully completed a conversation session with Aunty Gem.
+                    Great practice! You've successfully completed a conversation session with JamTalk.
                 </p>
 
                 <div className="pt-4 space-y-3">
@@ -695,7 +696,7 @@ export const LiveSession: React.FC<LiveSessionProps> = ({
                               : 'bg-white border border-gray-200 text-gray-800'
                            }`}>
                                <span className="block text-[10px] opacity-50 mb-1 font-bold">
-                                   {msg.role === 'user' ? 'You' : 'Aunty Gem'}
+                                   {msg.role === 'user' ? 'You' : 'JamTalk'}
                                </span>
                                {msg.text}
                            </div>

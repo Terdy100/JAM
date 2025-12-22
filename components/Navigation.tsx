@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, MessageSquare, Mic, Languages, Music, Activity } from 'lucide-react';
+import { BookOpen, MessageSquare, Mic, Languages, Music, Activity, User } from 'lucide-react';
 import { AppMode } from '../types';
 
 interface NavigationProps {
@@ -18,8 +18,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentMode, onChangeMod
             currentMode === AppMode.LESSONS ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
-          <BookOpen size={20} strokeWidth={currentMode === AppMode.LESSONS ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Lessons</span>
+          <BookOpen size={18} strokeWidth={currentMode === AppMode.LESSONS ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Learn</span>
         </button>
 
         <button
@@ -28,18 +28,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentMode, onChangeMod
             currentMode === AppMode.CHAT ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
-          <MessageSquare size={20} strokeWidth={currentMode === AppMode.CHAT ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Chat</span>
-        </button>
-
-        <button
-          onClick={() => onChangeMode(AppMode.LIVE)}
-          className={`flex flex-col items-center justify-center space-y-1 w-full h-full ${
-            currentMode === AppMode.LIVE ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          <Mic size={20} strokeWidth={currentMode === AppMode.LIVE ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Live</span>
+          <MessageSquare size={18} strokeWidth={currentMode === AppMode.CHAT ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Chat</span>
         </button>
 
         <button
@@ -48,8 +38,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentMode, onChangeMod
             currentMode === AppMode.COACH ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
-          <Activity size={20} strokeWidth={currentMode === AppMode.COACH ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Coach</span>
+          <Activity size={18} strokeWidth={currentMode === AppMode.COACH ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Coach</span>
         </button>
 
         <button
@@ -58,8 +48,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentMode, onChangeMod
             currentMode === AppMode.TRANSLATE ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
-          <Languages size={20} strokeWidth={currentMode === AppMode.TRANSLATE ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Translate</span>
+          <Languages size={18} strokeWidth={currentMode === AppMode.TRANSLATE ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Dict</span>
         </button>
 
         <button
@@ -68,8 +58,18 @@ export const Navigation: React.FC<NavigationProps> = ({ currentMode, onChangeMod
             currentMode === AppMode.MUSIC ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
-          <Music size={20} strokeWidth={currentMode === AppMode.MUSIC ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Music</span>
+          <Music size={18} strokeWidth={currentMode === AppMode.MUSIC ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Music</span>
+        </button>
+
+        <button
+          onClick={() => onChangeMode(AppMode.PROFILE)}
+          className={`flex flex-col items-center justify-center space-y-1 w-full h-full ${
+            currentMode === AppMode.PROFILE ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <User size={18} strokeWidth={currentMode === AppMode.PROFILE ? 2.5 : 2} />
+          <span className="text-[9px] font-bold uppercase">Account</span>
         </button>
       </div>
     </nav>

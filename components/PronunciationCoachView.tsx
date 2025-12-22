@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Activity, Mic, Square, RefreshCw, Volume2, ChevronRight, Loader2, Award, Zap, History, Calendar, X, StopCircle } from 'lucide-react';
 import { ai } from '../services/gemini';
-import { Type } from '@google/genai';
+import { Type, Modality } from '@google/genai';
 import { base64ToUint8Array, decodeAudioData, arrayBufferToBase64 } from '../utils/audio';
 import { CoachHistoryItem } from '../types';
 
@@ -192,50 +191,33 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
     setNativeAudioBuffer(null);
     
     try {
-      // Use string prompt for simplicity and robustness
-      const prompt = "Generate a short, challenging Jamaican Patois phrase for pronunciation practice. Include the English meaning. Return a clean JSON object with keys: 'patois' and 'english'. Ensure the content is safe and educational.";
+      // Fix: Used 'gemini-3-flash-preview' for text task
+      const prompt = "Generate a short, challenging Jamaican Patois phrase for pronunciation practice. Include the English meaning. Return a clean JSON object with keys: 'patois' and 'english'.";
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-          maxOutputTokens: 600, // Limit response size to prevent truncation errors
           responseSchema: {
             type: Type.OBJECT,
             properties: {
               patois: { type: Type.STRING },
               english: { type: Type.STRING }
-            }
+            },
+            required: ['patois', 'english']
           }
         }
       });
       
-      let text = response.text;
+      const text = response.text;
+      if (!text) throw new Error("Empty response from AI");
       
-      // Extended checks for empty text if the main getter fails
-      if (!text && response.candidates && response.candidates.length > 0) {
-          const part = response.candidates[0].content?.parts?.[0];
-          if (part && 'text' in part) {
-              text = part.text as string;
-          }
-      }
-      
-      if (!text) {
-          throw new Error("Empty response from AI");
-      }
-      
-      // Sanitize JSON
-      text = text.replace(/```json\n?|\n?```/g, '').trim();
-
       const json = JSON.parse(text);
-      if (!json.patois) throw new Error("Invalid response format");
-      
       setTargetPhrase(json);
       generateNativeAudio(json.patois);
     } catch (e) {
       console.warn("Error fetching phrase, using fallback", e);
-      // Fallback
       setTargetPhrase({
         patois: "Wah gwaan, everything irie?",
         english: "What's up, is everything good?"
@@ -251,15 +233,15 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
       const ctx = audioContextRef.current;
       if (!ctx) return;
 
-      // Truncate text to avoid token limit errors for TTS (limit to ~600 chars)
       const maxLength = 600;
       const textToSpeak = text.length > maxLength ? text.substring(0, maxLength) : text;
 
+      // Fix: Used correct model name and Modality.AUDIO enum
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: textToSpeak }] }],
         config: {
-            responseModalities: ['AUDIO'],
+            responseModalities: [Modality.AUDIO],
             speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } }
             }
@@ -282,7 +264,6 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
   };
 
   useEffect(() => {
-    // Only fetch if no phrase is set (e.g. initial load or reset)
     if (!targetPhrase) {
         fetchNewPhrase();
     }
@@ -302,7 +283,6 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = color;
 
-    // Draw middle line
     ctx.globalAlpha = 0.2;
     ctx.fillRect(0, amp, width, 1);
     ctx.globalAlpha = 1.0;
@@ -335,19 +315,15 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        // Use logic to determine supported mime type if needed, but 'audio/webm' is usually fine for Chrome/Firefox
-        // For Safari, we might need a different approach or rely on the browser to handle it.
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         
-        // Convert for visualization
         const arrayBuffer = await blob.arrayBuffer();
         if (audioContextRef.current) {
              const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer.slice(0));
              setUserAudioBuffer(audioBuffer);
-             drawWaveform(audioBuffer, userCanvasRef.current, '#3b82f6'); // Blue
+             drawWaveform(audioBuffer, userCanvasRef.current, '#3b82f6');
         }
 
-        // Analyze
         analyzePronunciation(blob);
       };
 
@@ -372,15 +348,11 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = arrayBufferToBase64(arrayBuffer);
 
-      const prompt = `Act as a strict Jamaican Patois vocal coach. Listen to this recording of the user saying: "${targetPhrase.patois}". 
-      1. Rate pronunciation accuracy 0-100.
-      2. Identify specific phoneme errors (e.g., 'Th' sound vs 'D' sound).
-      3. Provide a short, specific tip to fix it.
-      
-      Return JSON: { score: number, phonemes: string, feedback: string, fix: string }`;
+      const prompt = `Act as a strict Jamaican Patois vocal coach. Listen to this recording of the user saying: "${targetPhrase.patois}". Provide feedback on accuracy and tips for improvement. Return results in JSON format.`;
 
+      // Fix: Update to 'gemini-3-flash-preview' for text task
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: {
           parts: [
             { inlineData: { mimeType: 'audio/webm', data: base64Audio } },
@@ -389,46 +361,32 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
         },
         config: {
           responseMimeType: "application/json",
-          maxOutputTokens: 1000, // Increased limit for detailed analysis
-           responseSchema: {
+          responseSchema: {
             type: Type.OBJECT,
             properties: {
-              score: { type: Type.NUMBER },
-              phonemes: { type: Type.STRING },
-              feedback: { type: Type.STRING },
-              fix: { type: Type.STRING }
-            }
+              score: { type: Type.NUMBER, description: "Accuracy score 0-100" },
+              phonemes: { type: Type.STRING, description: "Specific phonetic issues found" },
+              feedback: { type: Type.STRING, description: "General coaching feedback" },
+              fix: { type: Type.STRING, description: "One specific tip to improve" }
+            },
+            required: ['score', 'phonemes', 'feedback', 'fix']
           }
         }
       });
 
       let text = response.text;
-      
-      // Extended checks for empty text
-      if (!text && response.candidates && response.candidates.length > 0) {
-          const part = response.candidates[0].content?.parts?.[0];
-          if (part && 'text' in part) {
-              text = part.text as string;
-          }
-      }
-
       if (!text) throw new Error("Empty analysis response");
       
-      // Robust JSON extraction
+      // Clean potential extra formatting characters if any
       const startIndex = text.indexOf('{');
       const endIndex = text.lastIndexOf('}');
-      
       if (startIndex !== -1 && endIndex !== -1) {
           text = text.substring(startIndex, endIndex + 1);
-      } else {
-          text = text.replace(/```json\n?|\n?```/g, '').trim();
       }
 
-      const json = JSON.parse(text);
-      const feedbackData = json as FeedbackData;
+      const feedbackData = JSON.parse(text) as FeedbackData;
       setFeedback(feedbackData);
 
-      // Save to history
       const historyItem: CoachHistoryItem = {
           id: Date.now().toString(),
           targetPhrase: targetPhrase,
@@ -443,8 +401,8 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
       setFeedback({
           score: 0,
           phonemes: "Analysis failed",
-          feedback: "The AI could not process the audio response correctly. Please try again or record a shorter clip.",
-          fix: "Ensure your mic is clear."
+          feedback: "Di signal fuzzy, man! JamTalk couldn't process di audio clearly.",
+          fix: "Record closer to di mic and speak up."
       });
     } finally {
       setIsAnalyzing(false);
@@ -453,7 +411,6 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
 
   const playNativeAudio = () => {
     if (!nativeAudioBuffer || !audioContextRef.current) return;
-    
     if (isPlayingNative) {
         if (nativeSourceRef.current) {
             try { nativeSourceRef.current.stop(); } catch(e) {}
@@ -461,18 +418,14 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
         setIsPlayingNative(false);
         return;
     }
-
-    // Stop user audio if playing
     if (isPlayingUser) {
         if (userSourceRef.current) {
             try { userSourceRef.current.stop(); } catch(e) {}
         }
         setIsPlayingUser(false);
     }
-
     const ctx = audioContextRef.current;
     if (ctx.state === 'suspended') ctx.resume();
-
     const source = ctx.createBufferSource();
     source.buffer = nativeAudioBuffer;
     source.connect(ctx.destination);
@@ -487,7 +440,6 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
 
   const playUserAudio = () => {
     if (!userAudioBuffer || !audioContextRef.current) return;
-    
     if (isPlayingUser) {
         if (userSourceRef.current) {
             try { userSourceRef.current.stop(); } catch(e) {}
@@ -495,18 +447,14 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
         setIsPlayingUser(false);
         return;
     }
-
-    // Stop native audio if playing
     if (isPlayingNative) {
         if (nativeSourceRef.current) {
             try { nativeSourceRef.current.stop(); } catch(e) {}
         }
         setIsPlayingNative(false);
     }
-
     const ctx = audioContextRef.current;
     if (ctx.state === 'suspended') ctx.resume();
-
     const source = ctx.createBufferSource();
     source.buffer = userAudioBuffer;
     source.connect(ctx.destination);
@@ -550,7 +498,7 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
 
             <button 
                 onClick={() => setIsHistoryOpen(true)}
-                className="p-2 rounded-full text-gray-500 hover:bg-gray-100"
+                className="p-2 rounded-full text-gray-600 hover:bg-gray-100"
                 title="History"
             >
                 <History size={20} />
@@ -559,35 +507,31 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
-        {/* Challenge Card */}
         <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500 relative overflow-hidden">
            {isGeneratingPhrase ? (
                <div className="flex flex-col items-center py-8 gap-3">
                    <Loader2 className="animate-spin text-green-600" size={32} />
-                   <span className="text-sm text-gray-500">Finding a tricky phrase...</span>
+                   <span className="text-sm text-gray-500 font-bold uppercase tracking-widest">Generating Challenge...</span>
                </div>
            ) : (
                <>
                  <div className="flex justify-between items-start mb-4">
-                    <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">Challenge</span>
+                    <span className="bg-green-100 text-green-800 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">Active Challenge</span>
                     <button onClick={fetchNewPhrase} className="text-gray-400 hover:text-green-600 transition-colors">
                         <RefreshCw size={18} />
                     </button>
                  </div>
                  
-                 <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
+                 <h3 className="text-2xl font-black text-gray-900 mb-2 leading-tight italic tracking-tight">
                     {targetPhrase?.patois}
                  </h3>
                  <p className="text-gray-500 italic mb-6">"{targetPhrase?.english}"</p>
 
-                 {/* Waveform Visualization Area */}
                  <div className="space-y-4 mb-6">
-                    {/* Native Waveform */}
                     <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 relative">
                         <div className="flex justify-between items-center mb-2">
-                             <span className="text-xs font-bold text-green-600 flex items-center gap-1">
-                                <Award size={12} /> Native Speaker
+                             <span className="text-[10px] font-black text-green-600 flex items-center gap-1 uppercase tracking-widest">
+                                <Award size={12} /> Target Accent
                              </span>
                              <button 
                                 onClick={playNativeAudio}
@@ -595,7 +539,7 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
                                 className={`p-2 rounded-full shadow-sm transition-all disabled:opacity-50 ${
                                     isPlayingNative 
                                         ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                                        : 'bg-white text-green-600 hover:scale-105'
+                                        : 'bg-white text-green-600 hover:scale-110 shadow-lg'
                                 }`}
                             >
                                 {isPlayingNative ? <StopCircle size={16} /> : <Volume2 size={16} />}
@@ -604,11 +548,10 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
                         <canvas ref={nativeCanvasRef} width={300} height={60} className="w-full h-16 rounded opacity-80" />
                     </div>
 
-                    {/* User Waveform */}
                     <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 relative">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                                <Mic size={12} /> Your Voice
+                            <span className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase tracking-widest">
+                                <Mic size={12} /> Your Recording
                             </span>
                             <button 
                                 onClick={playUserAudio}
@@ -616,7 +559,7 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
                                 className={`p-2 rounded-full shadow-sm transition-all disabled:opacity-50 ${
                                     isPlayingUser 
                                         ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                                        : 'bg-white text-blue-600 hover:scale-105'
+                                        : 'bg-white text-blue-600 hover:scale-110 shadow-lg'
                                 }`}
                             >
                                 {isPlayingUser ? <StopCircle size={16} /> : <Volume2 size={16} />}
@@ -626,43 +569,41 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
                     </div>
                  </div>
 
-                 {/* Controls */}
                  <div className="flex justify-center">
                     <button
                         onClick={isRecording ? stopRecording : startRecording}
                         disabled={isAnalyzing}
-                        className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all transform hover:scale-105 ${
+                        className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all transform active:scale-90 ${
                             isRecording 
-                                ? 'bg-red-500 ring-4 ring-red-200 animate-pulse' 
-                                : 'bg-gray-900 hover:bg-gray-800'
+                                ? 'bg-red-500 ring-8 ring-red-100 animate-pulse' 
+                                : 'bg-gray-950 hover:bg-gray-800'
                         }`}
                     >
                         {isRecording ? <Square size={32} className="text-white fill-current" /> : <Mic size={32} className="text-white" />}
                     </button>
                  </div>
                  
-                 {isRecording && <p className="text-center text-xs text-red-500 font-bold mt-2 animate-pulse">Recording...</p>}
+                 {isRecording && <p className="text-center text-[10px] text-red-500 font-black uppercase tracking-widest mt-4 animate-pulse">Recording Audio...</p>}
                </>
            )}
         </div>
 
-        {/* Feedback Section */}
         {isAnalyzing && (
-            <div className="bg-white rounded-2xl shadow-sm p-8 text-center border border-gray-100">
-                <Loader2 size={40} className="animate-spin text-blue-600 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-gray-800">Analyzing Pronunciation...</h3>
-                <p className="text-sm text-gray-500">Checking phonemes, tone, and rhythm.</p>
+            <div className="bg-white rounded-2xl shadow-sm p-10 text-center border border-gray-100 animate-in fade-in">
+                <Loader2 size={40} className="animate-spin text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-black text-gray-800 italic uppercase">Sonic Analysis...</h3>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-2">Checking phonemes and rhythm</p>
             </div>
         )}
 
         {feedback && !isAnalyzing && (
-            <div className="bg-white rounded-2xl shadow-lg p-6 border-t-4 border-blue-500 animate-in slide-in-from-bottom-6 duration-500">
-                <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-2xl shadow-xl p-6 border-t-4 border-green-500 animate-in slide-in-from-bottom-6 duration-500">
+                <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900">Analysis Result</h3>
-                        <p className="text-sm text-gray-500">Here is how you did</p>
+                        <h3 className="text-xl font-black text-gray-900 italic tracking-tight">Coach's Verdict</h3>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Acoustic Score</p>
                     </div>
-                    <div className={`relative w-16 h-16 flex items-center justify-center rounded-full border-4 font-bold text-xl ${
+                    <div className={`relative w-20 h-20 flex items-center justify-center rounded-full border-[6px] font-black text-2xl shadow-inner ${
                         feedback.score >= 80 ? 'border-green-500 text-green-600' :
                         feedback.score >= 60 ? 'border-yellow-500 text-yellow-600' :
                         'border-red-500 text-red-600'
@@ -671,29 +612,31 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <div className="bg-blue-50 rounded-xl p-4">
-                        <h4 className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-2">
-                           <Activity size={16} /> Phoneme Check
+                <div className="space-y-6">
+                    <div className="bg-green-50/50 rounded-2xl p-5 border border-green-100/50">
+                        <h4 className="text-[10px] font-black text-green-600 mb-2 flex items-center gap-2 uppercase tracking-widest">
+                           <Activity size={14} /> Phonetic Issues
                         </h4>
-                        <p className="text-sm text-blue-700 leading-relaxed">{feedback.phonemes}</p>
+                        <p className="text-sm text-gray-700 font-bold leading-relaxed">"{feedback.phonemes}"</p>
                     </div>
 
-                    <div className="bg-yellow-50 rounded-xl p-4">
-                         <h4 className="text-sm font-bold text-yellow-800 mb-1 flex items-center gap-2">
-                            <Zap size={16} /> Quick Fix
+                    <div className="bg-yellow-50/50 rounded-2xl p-5 border border-yellow-100/50">
+                         <h4 className="text-[10px] font-black text-yellow-700 mb-2 flex items-center gap-2 uppercase tracking-widest">
+                            <Zap size={14} /> Pro Tip
                          </h4>
-                         <p className="text-sm text-yellow-800 font-medium">"{feedback.fix}"</p>
+                         <p className="text-sm text-yellow-800 font-black italic">"{feedback.fix}"</p>
                     </div>
 
-                    <p className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">
-                        {feedback.feedback}
-                    </p>
+                    <div className="px-2">
+                        <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                            {feedback.feedback}
+                        </p>
+                    </div>
                 </div>
                 
                 <button 
                   onClick={fetchNewPhrase}
-                  className="w-full mt-6 bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  className="w-full mt-10 bg-gray-950 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-95"
                 >
                     Next Challenge <ChevronRight size={18} />
                 </button>
@@ -708,7 +651,7 @@ export const PronunciationCoachView: React.FC<PronunciationCoachViewProps> = ({ 
         history={history}
         onSelect={loadHistoryItem}
         onClear={() => {
-            if(window.confirm('Clear all practice history?')) setHistory([]);
+            if(window.confirm('Clear practice history?')) setHistory([]);
         }}
       />
     </div>

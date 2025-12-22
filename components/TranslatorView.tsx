@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { ai } from '../services/gemini';
 import { TranslationHistoryItem, TranslationDirection } from '../types';
-import { Type } from '@google/genai';
+import { Type, Modality } from '@google/genai';
 import { base64ToUint8Array, decodeAudioData } from '../utils/audio';
 
 const STORAGE_KEY = 'jamtalk_translation_history_v2';
@@ -208,8 +208,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ selectedVoice = 
       // Generate new phrase if missing or old
       setIsLoadingPhrase(true);
       try {
+        // Fix: Update to 'gemini-3-flash-preview' for text task
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: "Generate a unique, popular Jamaican Patois phrase, proverb, or slang term. Return a JSON object with 'patois', 'english' translation, and 'pronunciation'.",
           config: {
             responseMimeType: "application/json",
@@ -296,11 +297,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ selectedVoice = 
           const maxLength = 600;
           const textToSpeak = cleanText.length > maxLength ? cleanText.substring(0, maxLength) : cleanText;
 
+          // Fix: Corrected model name and used Modality.AUDIO enum
           const response = await ai.models.generateContent({
               model: "gemini-2.5-flash-preview-tts",
               contents: [{ parts: [{ text: textToSpeak }] }],
               config: {
-                  responseModalities: ['AUDIO'],
+                  responseModalities: [Modality.AUDIO],
                   speechConfig: {
                       voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } }
                   }
@@ -357,11 +359,11 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ selectedVoice = 
       let pronunciationText: string | undefined = undefined;
 
       if (direction === 'en-to-pat') {
-        // Use JSON schema for English to Patois to get pronunciation
+        // Fix: Update to 'gemini-3-flash-preview' for text task
         const prompt = `Translate the following Standard English text into authentic Jamaican Patois (Patwa). Return the translation and a simplified phonetic pronunciation guide. Text: "${inputText}"`;
         
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -387,10 +389,10 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ selectedVoice = 
         }
 
       } else {
-        // Standard text response for Patois to English
+        // Fix: Update to 'gemini-3-flash-preview' for text task
         const prompt = `Translate the following Jamaican Patois (Patwa) text into Standard English. Provide ONLY the translation, no intro or explanation. Text: "${inputText}"`;
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
         });
         resultText = response.text || "Could not translate.";
