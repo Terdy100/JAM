@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { User as UserType } from '../types';
 import { 
   Award, 
@@ -12,7 +12,12 @@ import {
   Flame, 
   CheckCircle,
   ExternalLink,
-  Lock
+  Lock,
+  Download,
+  Upload,
+  RefreshCw,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -22,13 +27,93 @@ interface ProfileViewProps {
   onLogout: () => void;
 }
 
+const STORAGE_KEYS = [
+  'jamtalk_user_session',
+  'jamtalk_completed_lessons',
+  'jamtalk_voice_preference',
+  'jamtalk_chat_sessions',
+  'jamtalk_live_history',
+  'jamtalk_translation_history_v2',
+  'jamtalk_coach_history'
+];
+
 export const ProfileView: React.FC<ProfileViewProps> = ({ 
   user, 
   completedLessonsCount, 
   totalLessons,
   onLogout 
 }) => {
+  const [exportStatus, setExportStatus] = useState<'idle' | 'success'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const progressPercent = Math.round((completedLessonsCount / totalLessons) * 100);
+
+  const handleExportData = () => {
+    const backup: Record<string, string | null> = {};
+    STORAGE_KEYS.forEach(key => {
+      backup[key] = localStorage.getItem(key);
+    });
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `JamTalk_Backup_${user.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setExportStatus('success');
+    setTimeout(() => setExportStatus('idle'), 3000);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('loading');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        
+        // Basic validation: Check if it's an object and has at least one relevant key
+        const hasKeys = STORAGE_KEYS.some(key => key in data);
+        if (!hasKeys) throw new Error("Invalid backup file format.");
+
+        // Apply data to localStorage
+        Object.entries(data).forEach(([key, value]) => {
+          if (STORAGE_KEYS.includes(key) && value !== null) {
+            localStorage.setItem(key, value as string);
+          }
+        });
+
+        setImportStatus('success');
+        setTimeout(() => {
+          // Reload app to reflect new data
+          window.location.reload();
+        }, 1500);
+      } catch (err) {
+        console.error("Import failed", err);
+        setImportStatus('error');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClearAllData = () => {
+    if (confirm('WARNING: This will permanently delete ALL your learning progress, chat history, and saved sessions from this device. This cannot be undone unless you have a backup file.\n\nAre you absolutely sure?')) {
+      STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      location.reload();
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-y-auto pb-24">
@@ -78,6 +163,57 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
         </div>
 
+        {/* Data Portability Section */}
+        <div className="space-y-3">
+             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Data Portability</h3>
+             <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm p-4 space-y-4">
+                 <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                   Since JamTalk stores your data locally for privacy, we recommend downloading a backup if you plan to switch devices.
+                 </p>
+                 
+                 <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={handleExportData}
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
+                        exportStatus === 'success' 
+                          ? 'bg-green-50 border-green-200 text-green-700' 
+                          : 'bg-gray-50 border-gray-100 hover:border-green-200 text-gray-700'
+                      }`}
+                    >
+                        {exportStatus === 'success' ? <Check size={20} className="mb-1" /> : <Download size={20} className="mb-1" />}
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Backup Profile</span>
+                    </button>
+
+                    <button 
+                      onClick={handleImportClick}
+                      disabled={importStatus === 'loading'}
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
+                        importStatus === 'success' 
+                          ? 'bg-green-50 border-green-200 text-green-700' 
+                          : importStatus === 'error'
+                          ? 'bg-red-50 border-red-200 text-red-700'
+                          : 'bg-gray-50 border-gray-100 hover:border-blue-200 text-gray-700'
+                      }`}
+                    >
+                        {importStatus === 'loading' ? <RefreshCw size={20} className="mb-1 animate-spin" /> : 
+                         importStatus === 'success' ? <Check size={20} className="mb-1" /> :
+                         importStatus === 'error' ? <AlertTriangle size={20} className="mb-1" /> :
+                         <Upload size={20} className="mb-1" />}
+                        <span className="text-[10px] font-bold uppercase tracking-widest">
+                          {importStatus === 'success' ? 'Restored!' : 'Restore Profile'}
+                        </span>
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".json" 
+                      onChange={handleFileImport} 
+                    />
+                 </div>
+             </div>
+        </div>
+
         {/* Account & Security Section */}
         <div className="space-y-3">
              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Account & Security</h3>
@@ -94,13 +230,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                  <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-50">
                     <div className="flex items-center gap-3 text-gray-700">
                         <History size={18} className="text-orange-500" />
-                        <span className="text-sm font-bold">Manage Cloud Storage</span>
+                        <span className="text-sm font-bold">Session History Settings</span>
                     </div>
                     <ExternalLink size={14} className="text-gray-300" />
                  </button>
 
                  <button 
-                   onClick={() => { if(confirm('Wipe all learning progress?')) location.reload(); }}
+                   onClick={handleClearAllData}
                    className="w-full flex items-center justify-between p-4 hover:bg-red-50 transition-colors text-red-500"
                  >
                     <div className="flex items-center gap-3">
